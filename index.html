@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Analizador de regresión lineal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#f4f6f9;--card:#ffffff;--ink:#1d2430;--mute:#5b6676;--line:#dde3ec;--accent:#1f4e79;--accent2:#e8f0fa;
+  --ok:#1e7b3a;--warn:#8a5a00;--warnbg:#fff4df;--err:#9b1c1c;--errbg:#fde8e8;--infobg:#e8f0fa;--best:#d9f2e0;}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#11161d;--card:#1a212b;--ink:#e6ebf2;--mute:#9aa6b6;--line:#2c3644;--accent:#8ec3ff;--accent2:#1d2a3a;--ok:#6fd38f;--warn:#f3c26b;--warnbg:#3a2e14;--err:#ff8c8c;--errbg:#3d1d1d;--infobg:#1d2a3a;--best:#1f3b2a;}}
+:root[data-theme="dark"]{--bg:#11161d;--card:#1a212b;--ink:#e6ebf2;--mute:#9aa6b6;--line:#2c3644;--accent:#8ec3ff;--accent2:#1d2a3a;--ok:#6fd38f;--warn:#f3c26b;--warnbg:#3a2e14;--err:#ff8c8c;--errbg:#3d1d1d;--infobg:#1d2a3a;--best:#1f3b2a;}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);min-height:100%}
+header{padding:16px 16px 10px}
+header h1{margin:0;font-size:20px;color:var(--accent)}
+header p{margin:4px 0 0;color:var(--mute);font-size:13px}
+main{padding:0 12px 40px;max-width:1100px;margin:0 auto}
+section{margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+h2{font-size:17px;margin:0 0 10px;color:var(--accent)}
+h3{font-size:15px;margin:14px 0 6px}
+label{font-size:14px}
+input[type=number],select,input[type=file]{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);max-width:100%}
+input[type=number]{width:120px}
+button{font:inherit;border:0;border-radius:8px;padding:9px 14px;background:var(--accent);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+button:disabled{opacity:.6;cursor:default}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0}
+.grid2{display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:760px){.grid2{grid-template-columns:1fr 1fr}}
+.chk{display:inline-flex;align-items:center;gap:6px;margin:4px 10px 4px 0;padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:var(--card)}
+.chk input{margin:0}
+.hint{font-size:12.5px;color:var(--mute);margin:6px 0}
+.msg{border-radius:8px;padding:9px 11px;margin:8px 0;font-size:14px}
+.msg.info{background:var(--infobg)}
+.msg.warn{background:var(--warnbg);color:var(--warn)}
+.msg.error{background:var(--errbg);color:var(--err)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right;white-space:nowrap}
+th{background:var(--accent2);text-align:center;font-weight:600}
+td.lbl,th:first-child{text-align:left}
+td.best{background:var(--best);font-weight:600}
+td.sig{color:var(--ok);font-weight:600}
+table.corr td{text-align:center;color:#fff;font-weight:600;min-width:64px}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px}
+.tabs button{background:var(--card);color:var(--accent);border:1px solid var(--line);white-space:nowrap}
+.tabs button.on{background:var(--accent);color:#fff}
+.model .eq{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--accent2);padding:8px;border-radius:8px;overflow-x:auto;white-space:nowrap;margin:6px 0}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
+@media (min-width:760px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+.stat span{display:block;font-size:11.5px;color:var(--mute)}
+.stat b{font-size:14.5px}
+.checks{margin:8px 0;padding-left:18px;color:var(--warn);font-size:13.5px}
+details{margin-top:8px}
+summary{cursor:pointer;color:var(--accent);font-size:14px}
+.list{margin:6px 0 0;padding-left:18px}
+.chartbox{position:relative;height:300px;max-width:100%}
+.panel[hidden]{display:none}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Analizador de regresión lineal</h1>
+  <p>Sube tu CSV o Excel. Todos los cálculos se hacen en tu navegador; tus datos no se envían a ningún servidor.</p>
+</header>
+<main>
+
+<section class="card" id="sec-datos">
+  <h2>1. Cargar datos</h2>
+  <div class="row">
+    <input type="file" id="file" accept=".csv,.txt,.xlsx,.xls">
+    <label>Codificación CSV
+      <select id="encoding">
+        <option value="UTF-8">UTF-8</option>
+        <option value="windows-1252">Windows-1252 (Excel en español)</option>
+      </select>
+    </label>
+  </div>
+  <div class="row" id="sheetWrap" hidden>
+    <label>Hoja <select id="sheet"></select></label>
+  </div>
+  <div id="loadMsg"></div>
+  <div id="loadStatus" class="hint"></div>
+  <div id="preview"></div>
+</section>
+
+<section class="card" id="sec-config" hidden>
+  <h2>2. Variables y opciones</h2>
+  <div class="row">
+    <label>Dependiente (respuesta):
+      <select id="dep"></select>
+    </label>
+  </div>
+  <h3>Independientes (predictoras)</h3>
+  <div class="row"><button class="ghost" id="btnAllPred" type="button">Marcar todas</button><button class="ghost" id="btnNonePred" type="button">Desmarcar</button></div>
+  <div id="predBox"></div>
+  <h3>Transformaciones (se aplican a cada predictora marcada)</h3>
+  <div class="row">
+    <label class="chk"><input type="checkbox" id="tLog"> log(x)</label>
+    <label class="chk"><input type="checkbox" id="tInv"> 1/x</label>
+    <label class="chk"><input type="checkbox" id="tSq"> x²</label>
+  </div>
+  <p class="hint">log(x) requiere valores positivos; 1/x requiere valores distintos de cero. Si no se cumple, la transformación se omite y se avisa.</p>
+  <h3>Partición entrenamiento / prueba</h3>
+  <div class="row">
+    <label>% entrenamiento <input type="number" id="trainPct" value="80" min="1" max="100"></label>
+    <label>Semilla <input type="number" id="seed" value="920203"></label>
+    <label class="chk"><input type="checkbox" id="useAll"> Sin partición (todo para entrenar)</label>
+  </div>
+  <p class="hint">La partición es reproducible con la misma semilla, pero no es idéntica a la de set.seed() de R.</p>
+  <div class="row"><button id="btnRun" type="button">Ajustar modelos</button></div>
+  <div id="configMsg"></div>
+</section>
+
+<section id="sec-result" hidden>
+  <div class="tabs">
+    <button type="button" data-panel="p-resumen">Resumen</button>
+    <button type="button" data-panel="p-modelos">Modelos</button>
+    <button type="button" data-panel="p-comparacion">Comparación</button>
+    <button type="button" data-panel="p-subconj">Mejor subconjunto</button>
+    <button type="button" data-panel="p-personal">Personalizado</button>
+    <button type="button" data-panel="p-graficas">Gráficas</button>
+  </div>
+  <div class="card panel" id="p-resumen" hidden></div>
+  <div class="panel" id="p-modelos" hidden></div>
+  <div class="card panel" id="p-comparacion" hidden></div>
+  <div class="card panel" id="p-subconj" hidden></div>
+  <div class="card panel" id="p-personal" hidden>
+    <h2>Modelo personalizado</h2>
+    <p class="hint">Marca las variables (incluidas las transformadas) que quieras en el modelo. Se ajusta con los mismos datos de entrenamiento.</p>
+    <div id="customBox"></div>
+    <div class="row"><button id="btnCustom" type="button">Ajustar personalizado</button></div>
+    <div id="customMsg"></div>
+    <div id="customOut"></div>
+  </div>
+  <div class="card panel" id="p-graficas" hidden>
+    <div class="grid2">
+      <label>Modelo <select id="chartModel"></select></label>
+      <label>Predictora (para dispersión) <select id="chartPred"></select></label>
+    </div>
+    <h3>Observado vs. ajustado</h3>
+    <div class="chartbox"><canvas id="c1"></canvas></div>
+    <h3>Residuos vs. ajustados</h3>
+    <div class="chartbox"><canvas id="c2"></canvas></div>
+    <h3>Normalidad de residuos (Q-Q)</h3>
+    <div class="chartbox"><canvas id="c3"></canvas></div>
+    <h3>Predictora vs. dependiente (entrenamiento)</h3>
+    <div class="chartbox"><canvas id="c4"></canvas></div>
+  </div>
+</section>
+
+</main>
+<script>
+/* Motor estadístico: lectura de datos, regresión OLS por QR, pruebas,
+   selección de variables. Todo se calcula en el navegador con los datos del usuario. */
+const Engine = (function () {
+  'use strict';
+
+  // ---------- funciones especiales ----------
+  const LANCZOS = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61503916999385, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+
+  function lnGamma(x) {
+    if (x < 0.5) return Math.log(Math.PI / Math.abs(Math.sin(Math.PI * x))) - lnGamma(1 - x);
+    x -= 1;
+    let a = LANCZOS[0];
+    const t = x + 7.5;
+    for (let i = 1; i < 9; i++) a += LANCZOS[i] / (x + i);
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+  }
+
+  function betacf(a, b, x) {
+    const MAXIT = 500, EPS = 3e-16, FPMIN = 1e-300;
+    const qab = a + b, qap = a + 1, qam = a - 1;
+    let c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN;
+    d = 1 / d;
+    let h = d;
+    for (let m = 1; m <= MAXIT; m++) {
+      const m2 = 2 * m;
+      let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d;
+      const del = d * c;
+      h *= del;
+      if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+
+  // Beta incompleta regularizada I_x(a,b)
+  function incBeta(x, a, b) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    const bt = Math.exp(lnGamma(a + b) - lnGamma(a) - lnGamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    if (x < (a + 1) / (a + b + 2)) return bt * betacf(a, b, x) / a;
+    return 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+
+  // p-valor bilateral de una t de Student
+  function tTwoSidedP(t, df) {
+    if (!isFinite(t)) return 0;
+    return incBeta(df / (df + t * t), df / 2, 0.5);
+  }
+
+  // p-valor de la cola superior de una F
+  function fUpperP(f, d1, d2) {
+    if (!(f > 0)) return 1;
+    return incBeta(d2 / (d2 + d1 * f), d2 / 2, d1 / 2);
+  }
+
+  // Cuantil normal estándar (Acklam)
+  function qnorm(p) {
+    const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+    const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+    const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+    const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+    const pl = 0.02425, ph = 1 - pl;
+    let q, r;
+    if (p < pl) {
+      q = Math.sqrt(-2 * Math.log(p));
+      return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    }
+    if (p > ph) {
+      q = Math.sqrt(-2 * Math.log(1 - p));
+      return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+    }
+    q = p - 0.5; r = q * q;
+    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  }
+
+  // ---------- utilidades ----------
+  function dot(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+  function mean(a) { let s = 0; for (const v of a) s += v; return s / a.length; }
+  function quantileSorted(s, p) { // tipo 7 (igual que R por defecto)
+    const h = (s.length - 1) * p, lo = Math.floor(h), hi = Math.ceil(h);
+    return s[lo] + (h - lo) * (s[hi] - s[lo]);
+  }
+
+  // ---------- lectura de datos ----------
+  const MISSING = new Set(['', 'NA', 'N/A', 'NaN', 'nan', 'null', 'NULL', '-', '.', '?']);
+
+  function toNumber(v) {
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    if (v === null || v === undefined) return null;
+    const s0 = String(v).trim();
+    if (MISSING.has(s0)) return null;
+    const s = s0.replace(/\s+/g, '');
+    if (/^[-+]?(\d+([.,]\d*)?|[.,]\d+)([eE][-+]?\d+)?$/.test(s)) {
+      const x = parseFloat(s.replace(',', '.'));
+      return isFinite(x) ? x : null;
+    }
+    return undefined; // no numérico (distinto de faltante)
+  }
+
+  function detectDelimiter(text) {
+    const first = text.split(/\r?\n/).find(l => l.trim().length > 0) || '';
+    const counts = { ',': 0, ';': 0, '\t': 0 };
+    let inQ = false;
+    for (const ch of first) {
+      if (ch === '"') inQ = !inQ;
+      else if (!inQ && counts[ch] !== undefined) counts[ch]++;
+    }
+    let best = ',', bc = -1;
+    for (const d of [';', ',', '\t']) if (counts[d] > bc) { bc = counts[d]; best = d; }
+    return best;
+  }
+
+  function parseCSVText(text) {
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    const delimiter = detectDelimiter(text);
+    const rows = [];
+    let row = [], field = '', inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQ) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false;
+        } else field += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === delimiter) { row.push(field); field = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && text[i + 1] === '\n') i++;
+        row.push(field); rows.push(row); row = []; field = '';
+      } else field += ch;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    return { delimiter, rows: rows.filter(r => !(r.length === 1 && r[0].trim() === '')) };
+  }
+
+  // rows: matriz con la primera fila como encabezado
+  function buildTable(rows) {
+    if (!rows || rows.length < 2) throw new Error('El archivo debe tener encabezado y al menos una fila de datos.');
+    const header = rows[0];
+    const names = [], seen = {};
+    header.forEach((h, j) => {
+      let nm = String(h == null ? '' : h).trim();
+      if (nm === '') nm = 'col_' + (j + 1);
+      if (seen[nm]) { seen[nm]++; nm = nm + '_' + seen[nm]; } else seen[nm] = 1;
+      names.push(nm);
+    });
+    const columns = {};
+    names.forEach(nm => columns[nm] = []);
+    for (let i = 1; i < rows.length; i++) {
+      names.forEach((nm, j) => {
+        const v = j < rows[i].length ? rows[i][j] : null;
+        columns[nm].push(v);
+      });
+    }
+    const nrow = rows.length - 1;
+    return { names, columns, nrow };
+  }
+
+  // Clasifica una columna: numérica si todos sus valores no faltantes son números
+  function analyzeColumn(values) {
+    const nums = [];
+    let nonMissing = 0, nonNumeric = 0;
+    for (const v of values) {
+      const x = toNumber(v);
+      if (x === null) { nums.push(null); continue; }
+      if (x === undefined) { nums.push(null); nonNumeric++; nonMissing++; continue; }
+      nums.push(x); nonMissing++;
+    }
+    return { numeric: nonMissing > 0 && nonNumeric === 0, nonMissing, nums, missing: values.length - nonMissing };
+  }
+
+  // ---------- regresión OLS por QR (Gram-Schmidt modificado con reortogonalización) ----------
+  // cols: arreglo de columnas (cada una de longitud n); cols[0] debe ser de unos (intercepto)
+  function fitOLS(cols, names, y, tol) {
+    tol = tol || 1e-9;
+    const n = y.length;
+    const Q = [], Rcols = [], kept = [], aliased = [];
+    for (let j = 0; j < cols.length; j++) {
+      const v = cols[j].slice();
+      const orig = Math.sqrt(dot(cols[j], cols[j]));
+      const rcol = [];
+      for (let pass = 0; pass < 2; pass++) {
+        for (let k = 0; k < Q.length; k++) {
+          const r = dot(Q[k], v);
+          if (pass === 0) rcol.push(r); else rcol[k] += r;
+          for (let i = 0; i < n; i++) v[i] -= r * Q[k][i];
+        }
+      }
+      const nv = Math.sqrt(dot(v, v));
+      if (!(nv > tol * Math.max(orig, 1e-300))) { aliased.push(names[j]); continue; }
+      for (let i = 0; i < n; i++) v[i] /= nv;
+      rcol.push(nv);
+      Q.push(v); Rcols.push(rcol); kept.push(j);
+    }
+    const r = kept.length;
+    const R = Array.from({ length: r }, () => new Array(r).fill(0));
+    for (let m = 0; m < r; m++) for (let k = 0; k <= m; k++) R[k][m] = Rcols[m][k];
+    const Ri = Array.from({ length: r }, () => new Array(r).fill(0));
+    for (let i = 0; i < r; i++) {
+      Ri[i][i] = 1 / R[i][i];
+      for (let j = i + 1; j < r; j++) {
+        let s = 0;
+        for (let k = i; k < j; k++) s += R[k][j] * Ri[i][k];
+        Ri[i][j] = -s / R[j][j];
+      }
+    }
+    const qty = Q.map(q => dot(q, y));
+    const beta = new Array(r).fill(0);
+    for (let i = 0; i < r; i++) {
+      let s = 0;
+      for (let j = i; j < r; j++) s += Ri[i][j] * qty[j];
+      beta[i] = s;
+    }
+    const diagXtXi = new Array(r).fill(0);
+    for (let i = 0; i < r; i++) {
+      let s = 0;
+      for (let j = i; j < r; j++) s += Ri[i][j] * Ri[i][j];
+      diagXtXi[i] = s;
+    }
+    const fitted = new Array(n).fill(0);
+    for (let i = 0; i < r; i++) {
+      const c = cols[kept[i]];
+      for (let t = 0; t < n; t++) fitted[t] += beta[i] * c[t];
+    }
+    const resid = y.map((v, t) => v - fitted[t]);
+    const rss = dot(resid, resid);
+    const h = new Array(n).fill(0);
+    for (let k = 0; k < r; k++) for (let t = 0; t < n; t++) h[t] += Q[k][t] * Q[k][t];
+    const df = n - r;
+    return {
+      n, rank: r, df, kept, names: kept.map(j => names[j]), aliased,
+      beta, diagXtXi, fitted, resid, rss, h,
+      sigma2: df > 0 ? rss / df : NaN
+    };
+  }
+
+  // ---------- estadísticas de un modelo ----------
+  // data: { ytr, Xtr: {nombre: arreglo}, yte, Xte: {nombre: arreglo}, trainIdx }
+  // termNames: términos (predictores) del modelo, sin intercepto
+  function fitModel(termNames, data) {
+    const n = data.ytr.length;
+    const cols = [new Array(n).fill(1)].concat(termNames.map(t => data.Xtr[t]));
+    const names = ['(Intercepto)'].concat(termNames);
+    const fit = fitOLS(cols, names, data.ytr);
+    if (fit.df <= 0) throw new Error('Hay más variables que observaciones de entrenamiento. Reduce variables o aumenta la muestra de entrenamiento.');
+    const yMean = mean(data.ytr);
+    const tss = data.ytr.reduce((s, v) => s + (v - yMean) * (v - yMean), 0);
+    const r2 = 1 - fit.rss / tss;
+    const p = fit.rank, dfr = fit.df;
+    const adjR2 = 1 - (1 - r2) * (n - 1) / dfr;
+    const numDf = p - 1;
+    const Fstat = numDf > 0 ? ((tss - fit.rss) / numDf) / fit.sigma2 : NaN;
+    const Fp = numDf > 0 ? fUpperP(Fstat, numDf, dfr) : NaN;
+    // AIC/BIC de R para lm: logLik con k = rango + 1 (sigma)
+    const logLik = -n / 2 * (Math.log(2 * Math.PI) + Math.log(fit.rss / n) + 1);
+    const AIC = -2 * logLik + 2 * (p + 1);
+    const BIC = -2 * logLik + Math.log(n) * (p + 1);
+    // AIC de extractAIC (usado por step() en R)
+    const stepAIC = n * Math.log(fit.rss / n) + 2 * p;
+    // Durbin-Watson en el orden de las filas de entrenamiento
+    let num = 0;
+    for (let t = 1; t < n; t++) num += (fit.resid[t] - fit.resid[t - 1]) ** 2;
+    const DW = num / fit.rss;
+    const rmseTrain = Math.sqrt(fit.rss / n);
+    // Coeficientes
+    const coef = fit.names.map((nm, i) => {
+      const se = Math.sqrt(fit.diagXtXi[i] * fit.sigma2);
+      const t = fit.beta[i] / se;
+      return { term: nm, est: fit.beta[i], se, t, p: tTwoSidedP(t, dfr) };
+    });
+    // VIF
+    const vif = [];
+    const nonInt = fit.names.map((nm, i) => ({ nm, i })).filter(o => o.i > 0);
+    if (nonInt.length >= 2) {
+      for (const o of nonInt) {
+        const others = nonInt.filter(x => x.nm !== o.nm);
+        const cols2 = [new Array(n).fill(1)].concat(others.map(x => cols[x.i]));
+        const aux = fitOLS(cols2, ['c'].concat(others.map(x => x.nm)), cols[o.i]);
+        const yM = mean(cols[o.i]);
+        const tssA = cols[o.i].reduce((s, v) => s + (v - yM) ** 2, 0);
+        const r2a = 1 - aux.rss / tssA;
+        vif.push({ term: o.nm, vif: 1 / (1 - r2a) });
+      }
+    }
+    // Residuos estandarizados (rstandard de R)
+    const stdResid = fit.resid.map((e, i) => e / (Math.sqrt(fit.sigma2) * Math.sqrt(1 - fit.h[i])));
+    // Predicción en prueba
+    let rmseTest = null, yhatTest = null, residTest = null;
+    if (data.yte.length > 0) {
+      yhatTest = data.yte.map((_, t) => {
+        let s = fit.beta[0];
+        for (let i = 1; i < fit.names.length; i++) s += fit.beta[i] * data.Xte[fit.names[i]][t];
+        return s;
+      });
+      residTest = data.yte.map((v, t) => v - yhatTest[t]);
+      rmseTest = Math.sqrt(dot(residTest, residTest) / data.yte.length);
+    }
+    return {
+      terms: fit.names.slice(1), aliased: fit.aliased, n, p, df: dfr,
+      coef, r2, adjR2, sigma: Math.sqrt(fit.sigma2), Fstat, Fp,
+      AIC, BIC, stepAIC, DW, rmseTrain, rmseTest, vif,
+      fitted: fit.fitted, resid: fit.resid, stdResid, rss: fit.rss, tss,
+      yhatTest, residTest, rankNames: fit.names
+    };
+  }
+
+  function safeFit(termNames, data) {
+    try { return fitModel(termNames, data); } catch (e) { return null; }
+  }
+
+  // ---------- selección paso a paso por AIC (como step() de R) ----------
+  function stepwise(candNames, data, mode, startSet) {
+    const cache = new Map();
+    const crit = set => {
+      const key = [...set].sort().join('|');
+      if (!cache.has(key)) {
+        const f = safeFit([...set], data);
+        cache.set(key, f ? f.stepAIC : Infinity);
+      }
+      return cache.get(key);
+    };
+    let cur = new Set(startSet);
+    let curAIC = crit(cur);
+    const path = [{ action: 'inicio', var: null, vars: [...cur], aic: curAIC }];
+    for (let iter = 0; iter < 500; iter++) {
+      const cands = [];
+      if (mode !== 'forward') for (const v of cur) { const s = new Set(cur); s.delete(v); cands.push({ action: 'quitar', v, set: s }); }
+      if (mode !== 'backward') for (const v of candNames) if (!cur.has(v)) { const s = new Set(cur); s.add(v); cands.push({ action: 'agregar', v, set: s }); }
+      let best = null, bestAIC = curAIC;
+      for (const c of cands) {
+        const a = crit(c.set);
+        if (a < bestAIC - 1e-10) { bestAIC = a; best = c; }
+      }
+      if (!best) break;
+      cur = best.set; curAIC = bestAIC;
+      path.push({ action: best.action, var: best.v, vars: [...cur], aic: curAIC });
+    }
+    return { vars: [...cur], aic: curAIC, path };
+  }
+
+  // ---------- mejor subconjunto por tamaño (igual que regsubsets(nbest=1) de R: menor RSS por tamaño) ----------
+  function bestSubsets(candNames, data, maxK) {
+    const m = candNames.length;
+    const full = fitModel(candNames, data);
+    const n = full.n;
+    const sigma2Full = full.rss / full.df;
+    const bestBySize = {};
+    const total = 1 << m;
+    for (let mask = 1; mask < total; mask++) {
+      const vars = [];
+      for (let b = 0; b < m; b++) if (mask & (1 << b)) vars.push(candNames[b]);
+      const k = vars.length;
+      if (k > maxK) continue;
+      const f = safeFit(vars, data);
+      if (!f) continue;
+      if (!bestBySize[k] || f.rss < bestBySize[k].fit.rss) bestBySize[k] = { vars, fit: f };
+    }
+    const out = [];
+    for (let k = 1; k <= maxK; k++) {
+      const b = bestBySize[k];
+      if (!b) continue;
+      const p = b.fit.p; // incluye intercepto
+      const rss = b.fit.rss;
+      const r2 = 1 - rss / b.fit.tss;
+      out.push({
+        k, vars: b.vars,
+        r2,
+        adjR2: 1 - (1 - r2) * (n - 1) / (n - p),
+        Cp: sigma2Full > 0 ? rss / sigma2Full - (n - 2 * p) : NaN,
+        BIC: n * Math.log(rss / n) + p * Math.log(n)
+      });
+    }
+    return { rows: out, fullR2: full.r2 };
+  }
+
+  // ---------- correlación de Pearson ----------
+  function pearson(x, y) {
+    const n = x.length;
+    const mx = mean(x), my = mean(y);
+    let sxy = 0, sxx = 0, syy = 0;
+    for (let i = 0; i < n; i++) {
+      sxy += (x[i] - mx) * (y[i] - my);
+      sxx += (x[i] - mx) ** 2;
+      syy += (y[i] - my) ** 2;
+    }
+    return sxy / Math.sqrt(sxx * syy);
+  }
+
+  // ---------- partición reproducible (generador mulberry32, no es el de R) ----------
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function splitIndices(n, trainPct, seed) {
+    const idx = Array.from({ length: n }, (_, i) => i);
+    const rnd = mulberry32(seed);
+    for (let i = n - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    const nTr = Math.floor(trainPct * n);
+    const train = idx.slice(0, nTr).sort((a, b) => a - b);
+    const test = idx.slice(nTr).sort((a, b) => a - b);
+    return { train, test };
+  }
+
+  return {
+    lnGamma, incBeta, tTwoSidedP, fUpperP, qnorm,
+    toNumber, detectDelimiter, parseCSVText, buildTable, analyzeColumn,
+    fitOLS, fitModel, safeFit, stepwise, bestSubsets, pearson,
+    splitIndices, mean, quantileSorted
+  };
+})();
+
+
+</script>
+<script>
+/* Lógica de la app: preparación de datos, ajuste de modelos, comparación, gráficas (datos). */
+const AppLogic = (function () {
+  'use strict';
+  const MAX_EXHAUSTIVE = 12;
+
+  function ppoints(n) {
+    const out = [];
+    for (let i = 1; i <= n; i++) out.push(n <= 10 ? (i - 3 / 8) / (n + 1 / 4) : (i - 0.5) / n);
+    return out;
+  }
+
+  // analysis: { [nombre]: { numeric, nums, missing } }
+  // opts: { dep, preds[], log, inv, sq, trainPct, seed, useAll }
+  function buildDataset(analysis, nrow, opts) {
+    const warnings = [];
+    const dep = opts.dep;
+    const preds = opts.preds.filter(p => p !== dep);
+    if (!dep) throw new Error('Elige la variable dependiente.');
+    if (preds.length === 0) throw new Error('Elige al menos una variable independiente.');
+    const need = [dep].concat(preds);
+    const valid = [];
+    for (let i = 0; i < nrow; i++) if (need.every(nm => analysis[nm].nums[i] !== null)) valid.push(i);
+    if (valid.length < 5) throw new Error('Quedan muy pocas filas completas (' + valid.length + '). Revisa valores faltantes.');
+    const removedBy = {};
+    need.forEach(nm => removedBy[nm] = analysis[nm].nums.filter(v => v === null).length);
+
+    const y = valid.map(i => analysis[dep].nums[i]);
+    const terms = {};
+    const candidates = [];
+    const transformNotes = [];
+    for (const p of preds) {
+      const base = valid.map(i => analysis[p].nums[i]);
+      terms[p] = base; candidates.push(p);
+      if (opts.log) {
+        if (base.every(v => v > 0)) { terms['log(' + p + ')'] = base.map(Math.log); candidates.push('log(' + p + ')'); }
+        else transformNotes.push('log(' + p + ') omitida: la variable tiene valores ≤ 0.');
+      }
+      if (opts.inv) {
+        if (base.every(v => v !== 0)) { terms['1/' + p] = base.map(v => 1 / v); candidates.push('1/' + p); }
+        else transformNotes.push('1/' + p + ' omitida: la variable tiene ceros.');
+      }
+      if (opts.sq) { terms[p + '^2'] = base.map(v => v * v); candidates.push(p + '^2'); }
+    }
+    transformNotes.forEach(w => warnings.push(w));
+
+    let trainIdx, testIdx;
+    const n = valid.length;
+    if (opts.useAll || opts.trainPct >= 100) {
+      trainIdx = Array.from({ length: n }, (_, i) => i); testIdx = [];
+    } else {
+      const sp = Engine.splitIndices(n, opts.trainPct / 100, opts.seed);
+      trainIdx = sp.train; testIdx = sp.test;
+    }
+    const pick = (arr, idx) => idx.map(i => arr[i]);
+    const Xtr = {}, Xte = {};
+    for (const t of candidates) { Xtr[t] = pick(terms[t], trainIdx); Xte[t] = pick(terms[t], testIdx); }
+    const ds = {
+      dep, preds, candidates, n, removedBy, removedTotal: nrow - n,
+      ytr: pick(y, trainIdx), yte: pick(y, testIdx), Xtr, Xte,
+      trainN: trainIdx.length, testN: testIdx.length, warnings, transformNotes,
+      split: (opts.useAll || opts.trainPct >= 100) ? 'Sin partición: todos los datos para entrenar' : (opts.trainPct + '% entrenamiento / ' + (100 - opts.trainPct) + '% prueba, semilla ' + opts.seed)
+    };
+    if (ds.trainN < 30) warnings.push('La muestra de entrenamiento es pequeña (' + ds.trainN + ' filas). Los resultados son poco estables.');
+    if (ds.testN > 0 && ds.testN < 10) warnings.push('La muestra de prueba tiene solo ' + ds.testN + ' filas: el RMSE de prueba es muy sensible a la partición.');
+    if (candidates.length > MAX_EXHAUSTIVE) warnings.push('Hay ' + candidates.length + ' variables candidatas. El mejor subconjunto exhaustivo se omite cuando hay más de ' + MAX_EXHAUSTIVE + ' variables.');
+    return ds;
+  }
+
+  function fitWithPath(vars, ds, path) {
+    const m = Engine.fitModel(vars, ds);
+    if (path) m.path = path;
+    return m;
+  }
+
+  // Ajusta el conjunto estándar de modelos
+  function runModels(ds) {
+    const errors = [];
+    const models = [];
+    const tryAdd = (fn, label) => { try { models.push(fn()); } catch (e) { errors.push(label + ': ' + e.message); } };
+    const C = ds.candidates;
+
+    tryAdd(() => { const m = Engine.fitModel(C, ds); m.key = 'full'; m.label = 'Completo (todas las variables)'; return m; }, 'Completo');
+
+    const stepMode = [
+      { key: 'both', mode: 'both', start: C, label: 'Stepwise: ambas direcciones (desde el completo)' },
+      { key: 'back', mode: 'backward', start: C, label: 'Stepwise: hacia atrás (desde el completo)' },
+      { key: 'fwd', mode: 'forward', start: [], label: 'Stepwise: hacia adelante (desde vacío)' }
+    ];
+    for (const s of stepMode) {
+      tryAdd(() => {
+        const sw = Engine.stepwise(C, ds, s.mode, s.start);
+        const m = Engine.fitModel(sw.vars, ds);
+        m.key = s.key; m.label = s.label; m.path = sw.path;
+        return m;
+      }, s.label);
+    }
+
+    let subsets = null;
+    if (C.length <= MAX_EXHAUSTIVE) {
+      try { subsets = Engine.bestSubsets(C, ds, C.length); }
+      catch (e) { errors.push('Mejor subconjunto: ' + e.message); }
+    }
+    return { models, subsets, errors };
+  }
+
+  function fitCustom(ds, vars) {
+    const m = Engine.fitModel(vars, ds);
+    m.key = 'custom'; m.label = 'Personalizado';
+    return m;
+  }
+
+  // Filas de comparación y ganador por criterio
+  function compareRows(models) {
+    return models.map(m => ({
+      key: m.key, label: m.label,
+      nVars: m.p - 1,
+      r2: m.r2, adjR2: m.adjR2, AIC: m.AIC, BIC: m.BIC,
+      rmseTrain: m.rmseTrain, rmseTest: m.rmseTest, DW: m.DW
+    }));
+  }
+
+  function bestIndex(rows, field, dir) {
+    let best = -1, bv = null;
+    rows.forEach((r, i) => {
+      const v = r[field];
+      if (v === null || v === undefined || !isFinite(v)) return;
+      if (bv === null || (dir === 'max' ? v > bv : v < bv)) { bv = v; best = i; }
+    });
+    return best;
+  }
+
+  // Matriz de correlación en entrenamiento (como cor(regtecnica.train))
+  function corrMatrix(ds) {
+    const names = [ds.dep].concat(ds.preds);
+    const data = names.map(nm => nm === ds.dep ? ds.ytr : ds.Xtr[nm]);
+    const M = names.map((a, i) => names.map((b, j) => i === j ? 1 : Engine.pearson(data[i], data[j])));
+    return { names, M };
+  }
+
+  // Datos del gráfico Q-Q (igual que qqnorm + qqline de R)
+  function qqData(stdResid) {
+    const s = stdResid.slice().sort((a, b) => a - b);
+    const pp = ppoints(s.length);
+    const theo = pp.map(p => Engine.qnorm(p));
+    const q1 = Engine.quantileSorted(s, 0.25), q3 = Engine.quantileSorted(s, 0.75);
+    const t1 = Engine.qnorm(0.25), t3 = Engine.qnorm(0.75);
+    const slope = (q3 - q1) / (t3 - t1);
+    const intercept = q1 - slope * t1;
+    return { points: theo.map((t, i) => ({ x: t, y: s[i] })), slope, intercept, xmin: theo[0], xmax: theo[theo.length - 1] };
+  }
+
+  // Advertencias calculadas a partir del modelo (no supuestas)
+  function modelChecks(m) {
+    const out = [];
+    const nonInt = m.coef.slice(1);
+    const notSig = nonInt.filter(c => c.p > 0.05).map(c => c.term);
+    if (notSig.length) out.push('Variables no significativas al 5%: ' + notSig.join(', ') + '.');
+    const highVif = (m.vif || []).filter(v => v.vif > 10).map(v => v.term + ' (' + v.vif.toFixed(1) + ')');
+    if (highVif.length) out.push('VIF mayor a 10 (posible multicolinealidad): ' + highVif.join(', ') + '.');
+    const big = m.stdResid.map((r, i) => [Math.abs(r), i]).filter(o => o[0] > 3);
+    if (big.length) out.push(big.length + ' observación(es) con residuo estandarizado mayor a 3 en valor absoluto.');
+    if (m.aliased && m.aliased.length) out.push('Variables excluidas por ser combinación lineal de otras: ' + m.aliased.join(', ') + '.');
+    if (m.DW < 1.5 || m.DW > 2.5) out.push('Durbin-Watson = ' + m.DW.toFixed(2) + ': revisa autocorrelación, que depende del orden de las filas.');
+    return out;
+  }
+
+  return { buildDataset, runModels, fitCustom, compareRows, bestIndex, corrMatrix, qqData, modelChecks, MAX_EXHAUSTIVE };
+})();
+
+
+</script>
+<script>
+/* Interfaz: carga de archivos, controles, tablas y gráficas. */
+(function () {
+  'use strict';
+  const S = { file: null, wb: null, analysis: null, nrow: 0, names: [], results: null, customModels: [], charts: {} };
+
+  const $ = id => document.getElementById(id);
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function fmt(x, d) {
+    if (d === undefined) d = 4;
+    if (x === null || x === undefined || !isFinite(x)) return '—';
+    return Number(x).toFixed(d);
+  }
+  function fmtP(p) {
+    if (p === null || p === undefined || !isFinite(p)) return '—';
+    return p < 0.0001 ? '&lt;0.0001' : p.toFixed(4);
+  }
+  function showMsg(id, text, kind) {
+    const el = $(id);
+    el.innerHTML = text ? '<div class="msg ' + (kind || 'info') + '">' + esc(text) + '</div>' : '';
+  }
+
+  // ---------- carga ----------
+  function setStatus(text) { $('loadStatus').innerHTML = text; }
+
+  function loadRows(rows, label) {
+    const tbl = Engine.buildTable(rows);
+    const analysis = {};
+    for (const nm of tbl.names) analysis[nm] = Engine.analyzeColumn(tbl.columns[nm]);
+    S.analysis = analysis; S.nrow = tbl.nrow; S.names = tbl.names;
+    const numeric = tbl.names.filter(nm => analysis[nm].numeric);
+    const nonNum = tbl.names.filter(nm => !analysis[nm].numeric);
+    setStatus('<b>' + esc(label) + '</b>: ' + tbl.nrow + ' filas, ' + tbl.names.length + ' columnas. ' +
+      'Numéricas: ' + numeric.length + '. ' + (nonNum.length ? 'No numéricas (no se pueden usar): ' + esc(nonNum.join(', ')) + '.' : ''));
+    renderPreview(rows, tbl);
+    fillVariableControls(numeric);
+    $('sec-config').hidden = false;
+    $('sec-result').hidden = true;
+    if (numeric.length < 2) showMsg('configMsg', 'Se necesitan al menos 2 columnas numéricas.', 'error');
+    else showMsg('configMsg', '');
+  }
+
+  function renderPreview(rows, tbl) {
+    const cols = tbl.names.slice(0, 15);
+    let h = '<div class="scroll"><table><thead><tr>' + cols.map(c => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>';
+    for (let i = 1; i < Math.min(rows.length, 9); i++) {
+      h += '<tr>' + cols.map((c, j) => '<td>' + esc(rows[i][tbl.names.indexOf(c)] === null || rows[i][tbl.names.indexOf(c)] === undefined ? '' : rows[i][tbl.names.indexOf(c)]) + '</td>').join('') + '</tr>';
+    }
+    h += '</tbody></table></div>';
+    if (tbl.names.length > 15) h += '<p class="hint">Se muestran las primeras 15 columnas.</p>';
+    $('preview').innerHTML = h;
+  }
+
+  function fillVariableControls(numeric) {
+    const prevDep = $('dep').value;
+    const guess = numeric.find(n => /resp|^y$|potencia/i.test(n)) || numeric[numeric.length - 1];
+    $('dep').innerHTML = numeric.map(n => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
+    $('dep').value = numeric.includes(prevDep) ? prevDep : guess;
+    refreshPredictors(true);
+  }
+
+  function refreshPredictors(defaultAll) {
+    const dep = $('dep').value;
+    const checked = new Set(Array.from(document.querySelectorAll('#predBox input:checked')).map(i => i.value));
+    const numeric = S.names.filter(n => S.analysis[n] && S.analysis[n].numeric && n !== dep);
+    $('predBox').innerHTML = numeric.map(n => {
+      const on = defaultAll ? true : checked.has(n);
+      return '<label class="chk"><input type="checkbox" value="' + esc(n) + '"' + (on ? ' checked' : '') + '> ' + esc(n) + '</label>';
+    }).join('');
+  }
+
+  function readFile(file, encoding, cb) {
+    const reader = new FileReader();
+    reader.onload = () => cb(null, reader.result);
+    reader.onerror = () => cb(new Error('No se pudo leer el archivo.'));
+    if (encoding === 'buffer') reader.readAsArrayBuffer(file);
+    else reader.readAsText(file, encoding);
+  }
+
+  function handleFile(file) {
+    S.file = file;
+    if (file.size > 25 * 1024 * 1024) showMsg('configMsg', 'El archivo pesa más de 25 MB; el cálculo puede tardar.', 'warn');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (ext === 'xlsx' || ext === 'xls') {
+      if (typeof XLSX === 'undefined') { showMsg('loadMsg', 'No se pudo cargar el lector de Excel. Usa un archivo CSV o revisa tu conexión.', 'error'); return; }
+      readFile(file, 'buffer', (err, data) => {
+        if (err) return showMsg('loadMsg', err.message, 'error');
+        try {
+          S.wb = XLSX.read(data, { type: 'array' });
+          const sel = $('sheet');
+          sel.innerHTML = S.wb.SheetNames.map(n => '<option>' + esc(n) + '</option>').join('');
+          $('sheetWrap').hidden = false;
+          loadSheet(S.wb.SheetNames[0]);
+        } catch (e) { showMsg('loadMsg', 'Archivo Excel no válido: ' + e.message, 'error'); }
+      });
+    } else {
+      $('sheetWrap').hidden = true; S.wb = null;
+      readFile(file, $('encoding').value, (err, text) => {
+        if (err) return showMsg('loadMsg', err.message, 'error');
+        try {
+          const parsed = Engine.parseCSVText(text);
+          if (text.indexOf('\uFFFD') !== -1) showMsg('loadMsg', 'Algunos caracteres no se leen bien. Prueba con la codificación Windows-1252.', 'warn');
+          else showMsg('loadMsg', '');
+          loadRows(parsed.rows, file.name + ' (separador "' + (parsed.delimiter === '\t' ? 'tab' : parsed.delimiter) + '")');
+        } catch (e) { showMsg('loadMsg', e.message, 'error'); }
+      });
+    }
+  }
+
+  function loadSheet(name) {
+    const ws = S.wb.Sheets[name];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true, blankrows: false });
+    try {
+      showMsg('loadMsg', '');
+      loadRows(rows.map(r => r.map(v => (v === undefined ? null : v))), S.file.name + ' · hoja "' + name + '"');
+    } catch (e) { showMsg('loadMsg', e.message, 'error'); }
+  }
+
+  // ---------- ajuste ----------
+  function getOpts() {
+    const preds = Array.from(document.querySelectorAll('#predBox input:checked')).map(i => i.value);
+    return {
+      dep: $('dep').value, preds,
+      log: $('tLog').checked, inv: $('tInv').checked, sq: $('tSq').checked,
+      trainPct: Number($('trainPct').value), seed: parseInt($('seed').value, 10) || 0,
+      useAll: $('useAll').checked
+    };
+  }
+
+  function runAnalysis() {
+    const opts = getOpts();
+    showMsg('configMsg', '');
+    if (!(opts.trainPct > 0 && opts.trainPct <= 100)) return showMsg('configMsg', 'El porcentaje de entrenamiento debe estar entre 1 y 100.', 'error');
+    $('btnRun').disabled = true; $('btnRun').textContent = 'Calculando…';
+    setTimeout(() => {
+      try {
+        const ds = AppLogic.buildDataset(S.analysis, S.nrow, opts);
+        const res = AppLogic.runModels(ds);
+        S.results = { ds, models: res.models, subsets: res.subsets, errors: res.errors, opts };
+        S.customModels = [];
+        renderAll();
+        $('sec-result').hidden = false;
+        $('sec-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (e) {
+        showMsg('configMsg', e.message, 'error');
+      } finally {
+        $('btnRun').disabled = false; $('btnRun').textContent = 'Ajustar modelos';
+      }
+    }, 30);
+  }
+
+  function allModels() { return S.results.models.concat(S.customModels); }
+
+  function renderAll() {
+    renderSummary();
+    renderModels();
+    renderComparison();
+    renderSubsets();
+    renderCustomForm();
+    renderChartControls();
+    renderCharts();
+  }
+
+  // ---------- resumen ----------
+  function renderSummary() {
+    const ds = S.results.ds;
+    let h = '<h3>Datos utilizados</h3><ul class="list">';
+    h += '<li>Filas completas usadas: <b>' + ds.n + '</b> de ' + S.nrow + ' (eliminadas: ' + ds.removedTotal + ').</li>';
+    const rb = Object.entries(ds.removedBy).filter(([, v]) => v > 0).map(([k, v]) => esc(k) + ': ' + v);
+    if (rb.length) h += '<li>Faltantes por variable: ' + rb.join(', ') + '.</li>';
+    h += '<li>Partición: ' + esc(ds.split) + '. Entrenamiento: <b>' + ds.trainN + '</b>; prueba: <b>' + ds.testN + '</b>.</li>';
+    h += '<li>Variables candidatas: ' + esc(ds.candidates.join(', ')) + '.</li></ul>';
+    if (ds.warnings.length) h += ds.warnings.map(w => '<div class="msg warn">' + esc(w) + '</div>').join('');
+    if (S.results.errors.length) h += S.results.errors.map(w => '<div class="msg error">' + esc(w) + '</div>').join('');
+    const cm = AppLogic.corrMatrix(ds);
+    h += '<h3>Correlación de Pearson (entrenamiento)</h3><div class="scroll"><table class="corr"><thead><tr><th></th>' +
+      cm.names.map(n => '<th>' + esc(n) + '</th>').join('') + '</tr></thead><tbody>';
+    cm.names.forEach((a, i) => {
+      h += '<tr><th>' + esc(a) + '</th>' + cm.M[i].map(v => '<td style="background:' + corrColor(v) + '">' + fmt(v, 2) + '</td>').join('') + '</tr>';
+    });
+    h += '</tbody></table></div><p class="hint">Azul: correlación positiva. Rojo: negativa. Intensidad según el valor.</p>';
+    $('p-resumen').innerHTML = h;
+  }
+
+  function corrColor(v) {
+    const a = Math.min(1, Math.abs(v));
+    const base = v >= 0 ? [33, 102, 172] : [178, 24, 43];
+    const mix = c => Math.round(255 + (c - 255) * a);
+    return 'rgb(' + mix(base[0]) + ',' + mix(base[1]) + ',' + mix(base[2]) + ')';
+  }
+
+  // ---------- modelos ----------
+  function equation(m) {
+    let s = 'y = ' + fmt(m.coef[0].est, 4);
+    for (let i = 1; i < m.coef.length; i++) {
+      const c = m.coef[i];
+      s += (c.est < 0 ? ' − ' : ' + ') + fmt(Math.abs(c.est), 4) + ' · ' + c.term;
+    }
+    return s;
+  }
+
+  function modelCard(m) {
+    const vifMap = {};
+    (m.vif || []).forEach(v => vifMap[v.term] = v.vif);
+    const hasVif = (m.vif || []).length > 0;
+    let h = '<div class="card model">';
+    h += '<h3>' + esc(m.label) + '</h3>';
+    h += '<div class="eq">' + esc(equation(m)) + '</div>';
+    h += '<div class="scroll"><table><thead><tr><th>Término</th><th>Estimación</th><th>Error est.</th><th>t</th><th>p-valor</th>' + (hasVif ? '<th>VIF</th>' : '') + '</tr></thead><tbody>';
+    m.coef.forEach(c => {
+      h += '<tr><td>' + esc(c.term) + '</td><td>' + fmt(c.est, 4) + '</td><td>' + fmt(c.se, 4) + '</td><td>' + fmt(c.t, 3) + '</td>' +
+        '<td class="' + (c.p < 0.05 ? 'sig' : '') + '">' + fmtP(c.p) + '</td>' +
+        (hasVif ? '<td>' + (c.term in vifMap ? fmt(vifMap[c.term], 2) : '—') + '</td>' : '') + '</tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<div class="stats">' +
+      stat('R²', fmt(m.r2, 4)) + stat('R² ajustado', fmt(m.adjR2, 4)) +
+      stat('Error est. residual', fmt(m.sigma, 3)) + stat('F (gl)', fmt(m.Fstat, 2) + ' (' + (m.p - 1) + ', ' + m.df + ')') +
+      stat('p de F', fmtP(m.Fp)) + stat('AIC', fmt(m.AIC, 2)) + stat('BIC', fmt(m.BIC, 2)) +
+      stat('Durbin-Watson', fmt(m.DW, 3)) + stat('RMSE entrenamiento', fmt(m.rmseTrain, 3)) +
+      stat('RMSE prueba', m.rmseTest === null ? 'sin prueba' : fmt(m.rmseTest, 3)) +
+      stat('n entrenamiento', m.n) + '</div>';
+    const checks = AppLogic.modelChecks(m);
+    if (checks.length) h += '<ul class="checks">' + checks.map(c => '<li>' + esc(c) + '</li>').join('') + '</ul>';
+    if (m.path) {
+      h += '<details><summary>Pasos de la selección (AIC de step de R)</summary><div class="scroll"><table><thead><tr><th>Paso</th><th>Acción</th><th>Variable</th><th>AIC</th><th>Variables</th></tr></thead><tbody>';
+      m.path.forEach((st, i) => {
+        h += '<tr><td>' + i + '</td><td>' + esc(st.action) + '</td><td>' + esc(st.var || '') + '</td><td>' + fmt(st.aic, 3) + '</td><td>' + esc(st.vars.join(', ') || '(solo intercepto)') + '</td></tr>';
+      });
+      h += '</tbody></table></div></details>';
+    }
+    h += '</div>';
+    return h;
+  }
+  function stat(label, value) { return '<div class="stat"><span>' + label + '</span><b>' + value + '</b></div>'; }
+
+  function renderModels() {
+    const ms = S.results.models;
+    let h = ms.map(modelCard).join('');
+    if (!ms.length) h = '<div class="msg error">No se pudo ajustar ningún modelo. Revisa los avisos de la pestaña Resumen.</div>';
+    $('p-modelos').innerHTML = h;
+  }
+
+  // ---------- comparación ----------
+  function renderComparison() {
+    const rows = AppLogic.compareRows(allModels());
+    const cols = [
+      { f: 'nVars', d: 0, best: null, label: 'Variables' },
+      { f: 'r2', d: 4, best: 'max', label: 'R²' },
+      { f: 'adjR2', d: 4, best: 'max', label: 'R² aj.' },
+      { f: 'AIC', d: 2, best: 'min', label: 'AIC' },
+      { f: 'BIC', d: 2, best: 'min', label: 'BIC' },
+      { f: 'rmseTrain', d: 3, best: 'min', label: 'RMSE entren.' },
+      { f: 'rmseTest', d: 3, best: 'min', label: 'RMSE prueba' },
+      { f: 'DW', d: 3, best: null, label: 'Durbin-Watson' }
+    ];
+    const bestOf = {};
+    cols.forEach(c => { if (c.best) bestOf[c.f] = AppLogic.bestIndex(rows, c.f, c.best); });
+    let h = '<div class="scroll"><table><thead><tr><th>Modelo</th>' + cols.map(c => '<th>' + c.label + '</th>').join('') + '</tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      h += '<tr><td class="lbl">' + esc(r.label) + '</td>' + cols.map(c => {
+        const cls = bestOf[c.f] === i ? ' class="best"' : '';
+        return '<td' + cls + '>' + fmt(r[c.f], c.d) + '</td>';
+      }).join('') + '</tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<p class="hint">Resaltado: mejor valor de cada criterio. AIC y BIC usan la fórmula de AIC() de R, comparable entre estos modelos. El AIC de la pestaña de pasos usa la fórmula de step(), así que no se compara con esta tabla.</p>';
+    h += '<p class="hint">El RMSE de prueba depende de la partición. Con muestras pequeñas puede cambiar mucho con otra semilla.</p>';
+    $('p-comparacion').innerHTML = h;
+  }
+
+  // ---------- mejor subconjunto ----------
+  function renderSubsets() {
+    const sb = S.results.subsets;
+    if (!sb) {
+      $('p-subconj').innerHTML = '<div class="msg warn">El mejor subconjunto exhaustivo se calcula con hasta ' + AppLogic.MAX_EXHAUSTIVE + ' variables candidatas. Reduce las variables o desmarca transformaciones para verlo.</div>';
+      return;
+    }
+    const rows = sb.rows;
+    const bR2 = AppLogic.bestIndex(rows, 'adjR2', 'max');
+    const bCp = AppLogic.bestIndex(rows, 'Cp', 'min');
+    const bBIC = AppLogic.bestIndex(rows, 'BIC', 'min');
+    let h = '<p class="hint">Para cada tamaño se muestra el subconjunto con menor RSS, igual que regsubsets(nbest=1) de R. Resaltado: mejor tamaño según cada criterio.</p>';
+    h += '<div class="scroll"><table><thead><tr><th>k</th><th>Variables</th><th>R²</th><th>R² aj.</th><th>Cp</th><th>BIC</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      h += '<tr><td>' + r.k + '</td><td class="lbl">' + esc(r.vars.join(', ')) + '</td>' +
+        '<td>' + fmt(r.r2, 4) + '</td>' +
+        '<td' + (i === bR2 ? ' class="best"' : '') + '>' + fmt(r.adjR2, 4) + '</td>' +
+        '<td' + (i === bCp ? ' class="best"' : '') + '>' + fmt(r.Cp, 2) + '</td>' +
+        '<td' + (i === bBIC ? ' class="best"' : '') + '>' + fmt(r.BIC, 2) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<p class="hint">Cp cercano al número de parámetros (k + 1) indica buen ajuste. El menor BIC penaliza más la complejidad.</p>';
+    $('p-subconj').innerHTML = h;
+  }
+
+  // ---------- personalizado ----------
+  function renderCustomForm() {
+    const ds = S.results.ds;
+    const defaults = new Set(((S.results.models.find(m => m.key === 'both') || {}).terms) || []);
+    $('customBox').innerHTML = ds.candidates.map(c =>
+      '<label class="chk"><input type="checkbox" value="' + esc(c) + '"' + (defaults.has(c) ? ' checked' : '') + '> ' + esc(c) + '</label>').join('');
+    $('customOut').innerHTML = '';
+  }
+
+  function applyCustom() {
+    const terms = Array.from(document.querySelectorAll('#customBox input:checked')).map(i => i.value);
+    if (terms.length === 0) return showMsg('customMsg', 'Marca al menos una variable.', 'error');
+    try {
+      const m = AppLogic.fitCustom(S.results.ds, terms);
+      S.customModels = [m];
+      showMsg('customMsg', '');
+      $('customOut').innerHTML = modelCard(m);
+      renderComparison();
+      renderChartControls();
+    } catch (e) { showMsg('customMsg', e.message, 'error'); }
+  }
+
+  // ---------- gráficas ----------
+  function renderChartControls() {
+    const ms = allModels();
+    const cur = $('chartModel').value;
+    $('chartModel').innerHTML = ms.map((m, i) => '<option value="' + i + '">' + esc(m.label) + '</option>').join('');
+    $('chartModel').value = (cur !== '' && Number(cur) < ms.length) ? cur : '0';
+    const predOpts = S.results.ds.preds.map(p => '<option value="' + esc(p) + '">' + esc(p) + '</option>').join('');
+    const curP = $('chartPred').value;
+    $('chartPred').innerHTML = predOpts;
+    if (S.results.ds.preds.includes(curP)) $('chartPred').value = curP;
+  }
+
+  function mkChart(id, config) {
+    if (S.charts[id]) S.charts[id].destroy();
+    const el = $(id);
+    if (typeof Chart === 'undefined') { el.parentNode.innerHTML = '<div class="msg warn">No se pudo cargar la librería de gráficas (Chart.js). Revisa tu conexión.</div>'; return; }
+    S.charts[id] = new Chart(el.getContext('2d'), config);
+  }
+
+  function renderCharts() {
+    const ms = allModels();
+    const m = ms[Number($('chartModel').value) || 0];
+    if (!m) return;
+    const ds = S.results.ds;
+    const diagFrom = arr => [Math.min(...arr), Math.max(...arr)];
+
+    // 1. Real vs ajustado
+    const trPts = m.fitted.map((f, i) => ({ x: f, y: ds.ytr[i] }));
+    const tePts = m.yhatTest ? m.yhatTest.map((f, i) => ({ x: f, y: ds.yte[i] })) : [];
+    const all = trPts.concat(tePts);
+    const [lo, hi] = diagFrom(all.map(p => p.x).concat(all.map(p => p.y)));
+    mkChart('c1', {
+      type: 'scatter',
+      data: { datasets: [
+        { label: 'Entrenamiento', data: trPts, backgroundColor: '#2166ac', pointRadius: 3 },
+        { label: 'Prueba', data: tePts, backgroundColor: '#e08214', pointRadius: 3 },
+        { label: 'y = x', data: [{ x: lo, y: lo }, { x: hi, y: hi }], type: 'line', showLine: true, pointRadius: 0, borderColor: '#888', borderDash: [5, 4], borderWidth: 1 }
+      ] },
+      options: baseOpts('Valor ajustado', ds.dep + ' observado')
+    });
+
+    // 2. Residuos vs ajustados
+    const resPts = m.fitted.map((f, i) => ({ x: f, y: m.resid[i] }));
+    const [flo, fhi] = diagFrom(m.fitted);
+    mkChart('c2', {
+      type: 'scatter',
+      data: { datasets: [
+        { label: 'Residuos', data: resPts, backgroundColor: '#2166ac', pointRadius: 3 },
+        { label: 'cero', data: [{ x: flo, y: 0 }, { x: fhi, y: 0 }], type: 'line', showLine: true, pointRadius: 0, borderColor: '#c0392b', borderWidth: 1 }
+      ] },
+      options: baseOpts('Valor ajustado', 'Residuo')
+    });
+
+    // 3. Q-Q
+    const qq = AppLogic.qqData(m.stdResid);
+    mkChart('c3', {
+      type: 'scatter',
+      data: { datasets: [
+        { label: 'Residuos estandarizados', data: qq.points, backgroundColor: '#2166ac', pointRadius: 3 },
+        { label: 'Referencia', data: [{ x: qq.xmin, y: qq.intercept + qq.slope * qq.xmin }, { x: qq.xmax, y: qq.intercept + qq.slope * qq.xmax }], type: 'line', showLine: true, pointRadius: 0, borderColor: '#c0392b', borderWidth: 1 }
+      ] },
+      options: baseOpts('Cuantiles teóricos (normal)', 'Residuo estandarizado')
+    });
+
+    // 4. Dispersión predictor vs dependiente
+    const pred = $('chartPred').value;
+    if (pred && ds.Xtr[pred]) {
+      const pts = ds.Xtr[pred].map((x, i) => ({ x, y: ds.ytr[i] }));
+      mkChart('c4', {
+        type: 'scatter',
+        data: { datasets: [{ label: pred + ' vs ' + ds.dep, data: pts, backgroundColor: '#2166ac', pointRadius: 3 }] },
+        options: baseOpts(pred, ds.dep)
+      });
+    }
+  }
+
+  function baseOpts(xl, yl) {
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: true, labels: { boxWidth: 12 } } },
+      scales: {
+        x: { title: { display: true, text: xl } },
+        y: { title: { display: true, text: yl } }
+      }
+    };
+  }
+
+  // ---------- eventos ----------
+  function init() {
+    $('file').addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+    $('encoding').addEventListener('change', () => { if (S.file && !/\.(xlsx|xls)$/i.test(S.file.name)) handleFile(S.file); });
+    $('sheet').addEventListener('change', e => loadSheet(e.target.value));
+    $('dep').addEventListener('change', () => refreshPredictors(false));
+    $('btnAllPred').addEventListener('click', () => document.querySelectorAll('#predBox input').forEach(i => i.checked = true));
+    $('btnNonePred').addEventListener('click', () => document.querySelectorAll('#predBox input').forEach(i => i.checked = false));
+    $('btnRun').addEventListener('click', runAnalysis);
+    $('btnCustom').addEventListener('click', applyCustom);
+    $('chartModel').addEventListener('change', renderCharts);
+    $('chartPred').addEventListener('change', renderCharts);
+    document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+      document.querySelectorAll('.panel').forEach(p => p.hidden = p.id !== b.dataset.panel);
+      if (b.dataset.panel === 'p-graficas') renderCharts();
+    }));
+    document.querySelectorAll('.tabs button')[0].click();
+    if (typeof Chart !== 'undefined') Chart.defaults.color = '#555';
+  }
+
+  if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', init);
+})();
+
+</script>
+</body>
+</html>
